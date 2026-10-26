@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificate Verification Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #eef1f6;
+    --card: #ffffff;
+    --ink: #1b2a41;
+    --muted: #5b6a80;
+    --rule: #c9d1de;
+    --blue: #2f5d9e;
+    --blue-dark: #254b81;
+    --valid: #1f7a5a;
+    --invalid: #b3362f;
+    --warn: #a8691a;
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+    padding: 32px 16px 64px;
+  }
+  .page { max-width: 720px; margin: 0 auto; }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(1.8rem, 5vw, 2.4rem);
+    line-height: 1.15;
+    margin: 0 0 8px;
+  }
+  .lead { color: var(--muted); margin: 0 0 28px; max-width: 56ch; }
+
+  .banner {
+    border: 1px solid var(--warn);
+    background: #fbf3e6;
+    color: #6b4410;
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 0.92rem;
+  }
+  .banner[hidden] { display: none; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--rule); margin-bottom: 0; }
+  .tab {
+    font: inherit;
+    font-weight: 500;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+  }
+  .tab[aria-selected="true"] {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--rule);
+    margin-bottom: -1px;
+    padding-bottom: 11px;
+  }
+  .tab:focus-visible, button:focus-visible, input:focus-visible, label.drop:focus-within {
+    outline: 3px solid #9db8e0;
+    outline-offset: 2px;
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    padding: 28px;
+  }
+  .panel[hidden] { display: none; }
+  .panel h2 { font-family: var(--serif); font-size: 1.3rem; margin: 0 0 4px; }
+  .panel p.hint { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+
+  .field { margin-bottom: 18px; }
+  .field > label, .field > .label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.95rem; }
+  input[type="text"] {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input[type="text"]:focus { border-color: var(--blue); }
+
+  label.drop {
+    display: block;
+    border: 1.5px dashed var(--rule);
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+  }
+  label.drop:hover { border-color: var(--blue); }
+  label.drop.has-file { color: var(--ink); border-style: solid; border-color: var(--blue); }
+  label.drop input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+  button.primary, button.secondary {
+    font: inherit;
+    font-weight: 500;
+    padding: 11px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--blue);
+  }
+  button.primary { background: var(--blue); color: #fff; }
+  button.primary:hover { background: var(--blue-dark); }
+  button.secondary { background: #fff; color: var(--blue); }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .wallet-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .wallet-status { font-size: 0.92rem; color: var(--muted); overflow-wrap: anywhere; }
+  .wallet-status strong { color: var(--ink); }
+
+  /* Steps shown while issuing */
+  ol.steps { list-style: none; padding: 0; margin: 20px 0 0; }
+  ol.steps li {
+    padding: 6px 0 6px 28px;
+    position: relative;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  ol.steps li::before {
+    content: "";
+    position: absolute; left: 4px; top: 12px;
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--rule);
+  }
+  ol.steps li[data-state="active"] { color: var(--ink); font-weight: 500; }
+  ol.steps li[data-state="active"]::before { border-color: var(--blue); background: #dbe7f8; }
+  ol.steps li[data-state="done"] { color: var(--ink); }
+  ol.steps li[data-state="done"]::before { border-color: var(--valid); background: var(--valid); }
+  ol.steps li[data-state="fail"] { color: var(--invalid); }
+  ol.steps li[data-state="fail"]::before { border-color: var(--invalid); background: var(--invalid); }
+
+  /* Result card: laid out like a small certificate with a seal */
+  .result {
+    margin-top: 26px;
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    padding: 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    align-items: start;
+    outline: 1px solid var(--rule);
+    outline-offset: 4px;
+  }
+  .result[hidden] { display: none; }
+  .result h3 { font-family: var(--serif); font-size: 1.35rem; margin: 0 0 6px; }
+  .result p { margin: 0 0 10px; }
+  .result dl { margin: 12px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 0.93rem; }
+  .result dt { color: var(--muted); }
+  .result dd { margin: 0; overflow-wrap: anywhere; }
+  .result a { color: var(--blue); }
+  .seal {
+    width: 96px; height: 96px; border-radius: 50%;
+    border: 3px double currentColor;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 1.1;
+    transform: rotate(-8deg);
+    padding: 8px;
+  }
+  .result[data-kind="valid"] { border-color: var(--valid); }
+  .result[data-kind="valid"] .seal, .result[data-kind="valid"] h3 { color: var(--valid); }
+  .result[data-kind="invalid"], .result[data-kind="revoked"] { border-color: var(--invalid); }
+  .result[data-kind="invalid"] .seal, .result[data-kind="invalid"] h3,
+  .result[data-kind="revoked"] .seal, .result[data-kind="revoked"] h3 { color: var(--invalid); }
+  .result[data-kind="notfound"], .result[data-kind="found"], .result[data-kind="info"] { border-color: var(--warn); }
+  .result[data-kind="notfound"] .seal, .result[data-kind="notfound"] h3,
+  .result[data-kind="found"] .seal, .result[data-kind="found"] h3,
+  .result[data-kind="info"] .seal, .result[data-kind="info"] h3 { color: var(--warn); }
+
+  @media (max-width: 520px) {
+    .panel { padding: 20px 16px; }
+    .result { grid-template-columns: 1fr; }
+    .seal { order: -1; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .result:not([hidden]) { animation: stamp 0.35s ease-out; }
+    @keyframes stamp { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Certificate verification portal</h1>
+  <p class="lead">Check whether a certificate was really issued, or register a new one. Every certificate is fingerprinted on the blockchain and its file is stored on IPFS.</p>
+
+  <div id="setupBanner" class="banner" hidden></div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-verify" aria-controls="panel-verify" aria-selected="true">Verify a certificate</button>
+    <button class="tab" role="tab" id="tab-issue" aria-controls="panel-issue" aria-selected="false">Issue a certificate</button>
+  </div>
+
+  <!-- VERIFY -->
+  <section class="panel" id="panel-verify" role="tabpanel" aria-labelledby="tab-verify">
+    <h2>Verify a certificate</h2>
+    <p class="hint">No wallet needed. Enter the certificate ID, and add the certificate file to confirm it has not been changed.</p>
+
+    <div class="field">
+      <label for="v-id">Certificate ID</label>
+      <input type="text" id="v-id" placeholder="CERT-2026-001" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="label">Certificate file (optional)</span>
+      <label class="drop" id="v-drop">
+        <input type="file" id="v-file" accept=".pdf,.png,.jpg,.jpeg">
+        <span id="v-drop-text">Choose the PDF or image you received</span>
+      </label>
+    </div>
+    <button class="primary" id="v-btn">Verify certificate</button>
+
+    <div class="result" id="v-result" hidden aria-live="polite"></div>
+  </section>
+
+  <!-- ISSUE -->
+  <section class="panel" id="panel-issue" role="tabpanel" aria-labelledby="tab-issue" hidden>
+    <h2>Issue a certificate</h2>
+    <p class="hint">Only the institution's admin wallet can issue certificates. The file is uploaded to IPFS and its fingerprint is recorded on the blockchain.</p>
+
+    <div class="wallet-row">
+      <button class="secondary" id="connectBtn">Connect MetaMask</button>
+      <span class="wallet-status" id="walletStatus">Wallet not connected.</span>
+    </div>
+
+    <div class="field">
+      <label for="i-id">Certificate ID</label>
+      <input type="text" id="i-id" placeholder="CERT-2026-001" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="i-name">Student name</label>
+      <input type="text" id="i-name" placeholder="Asha Rao" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="i-course">Course or program</label>
+      <input type="text" id="i-course" placeholder="Blockchain Technology Internship" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="label">Certificate file</span>
+      <label class="drop" id="i-drop">
+        <input type="file" id="i-file" accept=".pdf,.png,.jpg,.jpeg">
+        <span id="i-drop-text">Choose the certificate PDF or image</span>
+      </label>
+    </div>
+    <button class="primary" id="i-btn" disabled>Issue certificate</button>
+
+    <ol class="steps" id="steps" hidden>
+      <li data-step="hash" data-state="pending">Create the file's fingerprint</li>
+      <li data-step="ipfs" data-state="pending">Upload the file to IPFS</li>
+      <li data-step="wallet" data-state="pending">Confirm the transaction in MetaMask</li>
+      <li data-step="chain" data-state="pending">Wait for the blockchain to record it</li>
+    </ol>
+
+    <div class="result" id="i-result" hidden aria-live="polite"></div>
+  </section>
+</div>
+
+<!-- Web3.js (pinned version) -->
+<script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+<script src="config.js"></script>
+<script src="contract-config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var cfg = window.APP_CONFIG || {};
+  var $ = function (id) { return document.getElementById(id); };
+
+  var readContract = null;      // read-only, works without a wallet
+  var writeContract = null;     // needs MetaMask
+  var writeWeb3 = null;
+  var account = null;
+  var isAdmin = false;
+
+  /* ---------- Setup ---------- */
+  function showBanner(text) {
+    var b = $("setupBanner");
+    b.textContent = text;
+    b.hidden = false;
+  }
+
+  function init() {
+    if (typeof Web3 === "undefined") {
+      showBanner("Web3.js could not be loaded. Check your internet connection and reload the page.");
+      return;
+    }
+    if (!window.CONTRACT_ADDRESS || !window.CONTRACT_ABI || window.CONTRACT_ABI.length === 0) {
+      showBanner("The contract is not deployed yet. Run \"npm run deploy:local\", then reload this page.");
+      return;
+    }
+    try {
+      var web3 = new Web3(cfg.RPC_URL);
+      readContract = new web3.eth.Contract(window.CONTRACT_ABI, window.CONTRACT_ADDRESS);
+    } catch (e) {
+      showBanner("Could not connect to the blockchain at " + cfg.RPC_URL + ". Check RPC_URL in config.js.");
+    }
+  }
+
+  /* ---------- Tabs ---------- */
+  function selectTab(name) {
+    ["verify", "issue"].forEach(function (t) {
+      var on = t === name;
+      $("tab-" + t).setAttribute("aria-selected", on ? "true" : "false");
+      $("panel-" + t).hidden = !on;
+    });
+  }
+  $("tab-verify").addEventListener("click", function () { selectTab("verify"); });
+  $("tab-issue").addEventListener("click", function () { selectTab("issue"); });
+
+  /* ---------- Helpers ---------- */
+  function bindFilePicker(inputId, dropId, textId, emptyText) {
+    $(inputId).addEventListener("change", function () {
+      var f = $(inputId).files[0];
+      $(textId).textContent = f ? f.name : emptyText;
+      $(dropId).classList.toggle("has-file", !!f);
+    });
+  }
+  bindFilePicker("v-file", "v-drop", "v-drop-text", "Choose the PDF or image you received");
+  bindFilePicker("i-file", "i-drop", "i-drop-text", "Choose the certificate PDF or image");
+
+  // SHA-256 of the file, as a 0x-prefixed 32-byte hex string (fits a Solidity bytes32)
+  function sha256Hex(file) {
+    return file.arrayBuffer().then(function (buf) {
+      return crypto.subtle.digest("SHA-256", buf);
+    }).then(function (digest) {
+      var hex = Array.from(new Uint8Array(digest)).map(function (b) {
+        return b.toString(16).padStart(2, "0");
+      }).join("");
+      return "0x" + hex;
+    });
+  }
+
+  function formatDate(seconds) {
+    var d = new Date(Number(seconds) * 1000);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  }
+
+  function validCid(cid) { return /^[A-Za-z0-9]+$/.test(cid); }
+
+  function cleanError(err) {
+    var m = (err && (err.message || err.toString())) || "Something went wrong.";
+    var match = m.match(/revert(?:ed)?:? ?([^"\\\n]+)/i);
+    if (match) { return match[1].trim(); }
+    if (/User denied|rejected/i.test(m)) { return "You rejected the transaction in MetaMask."; }
+    return m.length > 200 ? m.slice(0, 200) + "..." : m;
+  }
+
+  // Builds the result card with textContent only, so stored text can never run as HTML
+  function renderResult(el, kind, seal, title, message, details) {
+    el.innerHTML = "";
+    el.setAttribute("data-kind", kind);
+
+    var left = document.createElement("div");
+    var h = document.createElement("h3"); h.textContent = title;
+    var p = document.createElement("p"); p.textContent = message;
+    left.appendChild(h); left.appendChild(p);
+
+    if (details && details.length) {
+      var dl = document.createElement("dl");
+      details.forEach(function (row) {
+        var dt = document.createElement("dt"); dt.textContent = row.label;
+        var dd = document.createElement("dd");
+        if (row.href) {
+          var a = document.createElement("a");
+          a.href = row.href; a.target = "_blank"; a.rel = "noopener noreferrer";
+          a.textContent = row.value;
+          dd.appendChild(a);
+        } else {
+          dd.textContent = row.value;
+        }
+        dl.appendChild(dt); dl.appendChild(dd);
+      });
+      left.appendChild(dl);
+    }
+
+    var s = document.createElement("div");
+    s.className = "seal"; s.setAttribute("aria-hidden", "true");
+    s.textContent = seal;
+
+    el.appendChild(left); el.appendChild(s);
+    el.hidden = false;
+  }
+
+  /* ---------- Verify ---------- */
+  $("v-btn").addEventListener("click", function () {
+    var out = $("v-result");
+    var id = $("v-id").value.trim();
+    var file = $("v-file").files[0];
+
+    if (!readContract) {
+      renderResult(out, "info", "Setup", "Portal not ready", "Finish the setup shown at the top of the page, then try again.");
+      return;
+    }
+    if (!id) {
+      renderResult(out, "info", "Missing ID", "Enter a certificate ID", "The certificate ID is printed on the certificate, for example CERT-2026-001.");
+      return;
+    }
+
+    var btn = $("v-btn");
+    btn.disabled = true; btn.textContent = "Checking...";
+
+    readContract.methods.certificateExists(id).call().then(function (exists) {
+      if (!exists) {
+        renderResult(out, "notfound", "Not found", "No certificate with this ID",
+          "This ID is not registered on the blockchain. Check the ID for typing mistakes. If it is correct, the certificate may be fake.");
+        return;
+      }
+      return readContract.methods.getCertificate(id).call().then(function (c) {
+        var details = [
+          { label: "Student", value: c.studentName },
+          { label: "Course", value: c.course },
+          { label: "Issued on", value: formatDate(c.issueDate) }
+        ];
+        if (validCid(c.ipfsCID)) {
+          details.push({ label: "Original file", value: "Open on IPFS", href: cfg.IPFS_GATEWAY + c.ipfsCID });
+        }
+
+        if (c.revoked) {
+          renderResult(out, "revoked", "Revoked", "This certificate was cancelled",
+            "The institution has revoked this certificate. It should not be accepted.", details);
+          return;
+        }
+        if (!file) {
+          renderResult(out, "found", "Record found", "Certificate is registered",
+            "The ID is registered. Add the certificate file and verify again to confirm the file has not been changed.", details);
+          return;
+        }
+        return sha256Hex(file).then(function (hash) {
+          return readContract.methods.verifyCertificate(id, hash).call().then(function (ok) {
+            if (ok) {
+              renderResult(out, "valid", "Valid", "Certificate is authentic",
+                "The file matches the fingerprint recorded on the blockchain.", details);
+            } else {
+              renderResult(out, "invalid", "Invalid", "File does not match",
+                "The ID exists, but this file is different from the one the institution issued. It may have been edited or replaced.", details);
+            }
+          });
+        });
+      });
+    }).catch(function (err) {
+      renderResult(out, "info", "Error", "Could not check the certificate", cleanError(err));
+    }).then(function () {
+      btn.disabled = false; btn.textContent = "Verify certificate";
+    });
+  });
+
+  /* ---------- Issue ---------- */
+  function setStep(name, state) {
+    var li = document.querySelector('#steps li[data-step="' + name + '"]');
+    if (li) { li.setAttribute("data-state", state); }
+  }
+  function resetSteps() {
+    document.querySelectorAll("#steps li").forEach(function (li) { li.setAttribute("data-state", "pending"); });
+    $("steps").hidden = false;
+  }
+
+  $("connectBtn").addEventListener("click", function () {
+    if (!window.ethereum) {
+      $("walletStatus").textContent = "MetaMask was not found. Install the MetaMask browser extension and reload.";
+      return;
+    }
+    if (!readContract) {
+      $("walletStatus").textContent = "Finish the setup shown at the top of the page first.";
+      return;
+    }
+    // Ask MetaMask to show the account picker every time, so the admin account can be chosen
+    window.ethereum.request({
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }]
+    }).then(function () {
+      return window.ethereum.request({ method: "eth_requestAccounts" });
+    }).then(function (accounts) {
+      account = accounts[0];
+      writeWeb3 = new Web3(window.ethereum);
+      writeContract = new writeWeb3.eth.Contract(window.CONTRACT_ABI, window.CONTRACT_ADDRESS);
+      return Promise.all([readContract.methods.admin().call(), writeWeb3.eth.getChainId()]);
+    }).then(function (res) {
+      var admin = res[0];
+      var chainId = Number(res[1]);
+      isAdmin = admin.toLowerCase() === account.toLowerCase();
+      var status = $("walletStatus");
+      status.textContent = "";
+      var strong = document.createElement("strong");
+      strong.textContent = account.slice(0, 6) + "..." + account.slice(-4);
+      status.appendChild(strong);
+
+      if (chainId !== Number(window.CONTRACT_CHAIN_ID)) {
+        status.appendChild(document.createTextNode(" connected, but on the wrong network. Switch MetaMask to chain ID " + window.CONTRACT_CHAIN_ID + "."));
+        isAdmin = false;
+      } else if (isAdmin) {
+        status.appendChild(document.createTextNode(" connected as the admin."));
+      } else {
+        status.appendChild(document.createTextNode(" connected, but this is not the admin wallet. The admin is " + admin + ". You cannot issue certificates."));
+      }
+      $("i-btn").disabled = !isAdmin;
+    }).catch(function (err) {
+      $("walletStatus").textContent = cleanError(err);
+    });
+  });
+
+  function uploadToIPFS(file) {
+    if (!cfg.PINATA_JWT || cfg.PINATA_JWT.indexOf("PASTE_") === 0) {
+      return Promise.reject(new Error("Add your Pinata JWT to frontend/config.js first."));
+    }
+    var form = new FormData();
+    form.append("file", file);
+    form.append("pinataMetadata", JSON.stringify({ name: file.name }));
+    return fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + cfg.PINATA_JWT },
+      body: form
+    }).then(function (res) {
+      if (!res.ok) { throw new Error("IPFS upload failed (status " + res.status + "). Check your Pinata JWT."); }
+      return res.json();
+    }).then(function (data) { return data.IpfsHash; });
+  }
+
+  $("i-btn").addEventListener("click", function () {
+    var out = $("i-result");
+    var id = $("i-id").value.trim();
+    var name = $("i-name").value.trim();
+    var course = $("i-course").value.trim();
+    var file = $("i-file").files[0];
+    out.hidden = true;
+
+    if (!isAdmin || !writeContract) {
+      renderResult(out, "info", "Wallet", "Connect the admin wallet", "Connect MetaMask with the admin account before issuing.");
+      return;
+    }
+    if (!id || !name || !course || !file) {
+      renderResult(out, "info", "Missing", "Fill in every field", "Certificate ID, student name, course, and the certificate file are all required.");
+      return;
+    }
+
+    var btn = $("i-btn");
+    btn.disabled = true;
+    resetSteps();
+
+    var hash, cid, txHash = "";
+    var current = "hash";
+
+    setStep("hash", "active");
+    readContract.methods.certificateExists(id).call().then(function (exists) {
+      if (exists) { throw new Error("A certificate with this ID is already registered. Use a different ID."); }
+      return sha256Hex(file);
+    }).then(function (h) {
+      hash = h; setStep("hash", "done");
+      current = "ipfs"; setStep("ipfs", "active");
+      return uploadToIPFS(file);
+    }).then(function (c) {
+      cid = c; setStep("ipfs", "done");
+      current = "wallet"; setStep("wallet", "active");
+      return new Promise(function (resolve, reject) {
+        writeContract.methods.issueCertificate(id, name, course, cid, hash)
+          .send({ from: account })
+          .on("transactionHash", function (t) {
+            txHash = t;
+            setStep("wallet", "done");
+            current = "chain"; setStep("chain", "active");
+          })
+          .on("receipt", resolve)
+          .on("error", reject);
+      });
+    }).then(function () {
+      setStep("chain", "done");
+      var details = [
+        { label: "Certificate ID", value: id },
+        { label: "Student", value: name },
+        { label: "Course", value: course },
+        { label: "File fingerprint", value: hash },
+        { label: "IPFS address", value: cid, href: cfg.IPFS_GATEWAY + cid },
+        { label: "Transaction", value: txHash }
+      ];
+      renderResult(out, "valid", "Issued", "Certificate recorded",
+        "The certificate is now on the blockchain and can be verified by anyone with its ID and file.", details);
+    }).catch(function (err) {
+      setStep(current, "fail");
+      renderResult(out, "invalid", "Failed", "Certificate was not issued", cleanError(err));
+    }).then(function () {
+      btn.disabled = !isAdmin;
+    });
+  });
+
+  if (window.ethereum && window.ethereum.on) {
+    window.ethereum.on("accountsChanged", function () { location.reload(); });
+    window.ethereum.on("chainChanged", function () { location.reload(); });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
